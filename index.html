@@ -3,102 +3,164 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Scanner de Codes-Barres</title>
+    <title>Enregistrement de Codes-Barres</title>
     <style>
         body {
             font-family: Arial, sans-serif;
-            margin: 10px;
+            margin: 20px;
             padding: 10px;
-            line-height: 1.5;
         }
-
         header {
             text-align: center;
             margin-bottom: 20px;
         }
-
         header img {
-            max-width: 150px;
+            max-width: 200px;
             height: auto;
         }
-
-        form {
-            margin-bottom: 20px;
-        }
-
-        label {
-            font-weight: bold;
-            display: block;
-            margin: 10px 0 5px;
-        }
-
-        input, button {
+        table {
             width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        table, th, td {
+            border: 1px solid black;
+        }
+        th, td {
             padding: 10px;
-            font-size: 16px;
-            margin-bottom: 15px;
-            border: 1px solid #ccc;
-            border-radius: 5px;
+            text-align: left;
         }
-
         button {
-            background-color: #007bff;
-            color: #fff;
-            border: none;
-            cursor: pointer;
+            margin: 10px 5px;
+            padding: 10px;
         }
-
-        button:hover {
-            background-color: #0056b3;
-        }
-
         #barcode-scanner {
             margin: 10px 0;
             display: none;
             text-align: center;
         }
-
         #barcode-scanner video {
             width: 100%;
-            max-width: 400px;
-            height: auto;
+            max-width: 500px;
             border: 2px solid black;
-        }
-
-        @media (max-width: 768px) {
-            input, button {
-                font-size: 14px;
-                padding: 8px;
-            }
-
-            header img {
-                max-width: 120px;
-            }
         }
     </style>
 </head>
 <body>
     <header>
         <img src="logo-sdis66.png" alt="Logo SDIS 66">
-        <h1>Scanner de Codes-Barres</h1>
+        <h1>Enregistrement de Codes-Barres</h1>
     </header>
 
     <form id="barcodeForm">
+        <label for="name">Nom :</label>
+        <input type="text" id="name" required>
+        <br><br>
+        <label for="matricule">Matricule :</label>
+        <input type="text" id="matricule" required>
+        <br><br>
         <label for="barcode">Code-Barres :</label>
-        <input type="text" id="barcode" readonly required placeholder="Scannez un code-barres">
+        <input type="text" id="barcode" readonly required>
         <button type="button" onclick="startScanner()">Scanner</button>
-
         <div id="barcode-scanner">
             <video id="scanner-preview"></video>
             <p>Placez le code-barres devant la caméra.</p>
             <button type="button" onclick="stopScanner()">Arrêter le Scanner</button>
         </div>
+        <br><br>
+        <button type="button" onclick="addRecord()">Ajouter</button>
     </form>
+
+    <h2>Tableau des Enregistrements</h2>
+    <table id="recordsTable">
+        <thead>
+            <tr>
+                <th>Nom</th>
+                <th>Matricule</th>
+                <th>Code-Barres</th>
+            </tr>
+        </thead>
+        <tbody>
+            <!-- Les lignes de données seront ajoutées ici -->
+        </tbody>
+    </table>
+
+    <button onclick="exportTableToCSV()">Exporter en CSV</button>
+    <button onclick="sendEmail()">Envoyer et Réinitialiser</button>
 
     <!-- QuaggaJS Library -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/quagga/0.12.1/quagga.min.js"></script>
     <script>
+        const records = [];
         let scannerActive = false;
+
+        function addRecord() {
+            const name = document.getElementById('name').value;
+            const matricule = document.getElementById('matricule').value;
+            const barcode = document.getElementById('barcode').value;
+
+            if (name && matricule && barcode) {
+                // Ajouter l'enregistrement à la table
+                records.push({ name, matricule, barcode });
+                const table = document.getElementById('recordsTable').getElementsByTagName('tbody')[0];
+                const newRow = table.insertRow();
+                newRow.insertCell(0).textContent = name;
+                newRow.insertCell(1).textContent = matricule;
+                newRow.insertCell(2).textContent = barcode;
+
+                // Effacer seulement le champ code-barres
+                document.getElementById('barcode').value = '';
+                stopScanner();
+            } else {
+                alert("Veuillez remplir tous les champs.");
+            }
+        }
+
+        function exportTableToCSV() {
+            let csvContent = "Nom,Matricule,Code-Barres\n";
+            records.forEach(record => {
+                csvContent += `${record.name},${record.matricule},${record.barcode}\n`;
+            });
+
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = "enregistrements.csv";
+            link.click();
+        }
+
+        function sendEmail() {
+            if (records.length === 0) {
+                alert("Aucune donnée à envoyer.");
+                return;
+            }
+
+            const csvContent = records.map(record => `${record.name},${record.matricule},${record.barcode}`).join('\n');
+            const mailToLink = `mailto:?subject=Enregistrements de Codes-Barres&body=${encodeURIComponent(csvContent)}`;
+            window.location.href = mailToLink;
+
+            // Confirmation de réinitialisation après l'envoi
+            const confirmReset = confirm("Les données ont été envoyées. Voulez-vous réinitialiser le formulaire et la base ?");
+            if (confirmReset) {
+                resetAll();
+            }
+        }
+
+        function resetAll() {
+            // Vider les champs du formulaire
+            document.getElementById('name').value = '';
+            document.getElementById('matricule').value = '';
+            document.getElementById('barcode').value = '';
+
+            // Effacer le tableau des enregistrements
+            const tableBody = document.getElementById('recordsTable').getElementsByTagName('tbody')[0];
+            tableBody.innerHTML = '';
+
+            // Réinitialiser les enregistrements en mémoire
+            records.length = 0;
+
+            alert("Tout a été réinitialisé.");
+        }
 
         function startScanner() {
             const scannerDiv = document.getElementById('barcode-scanner');
@@ -106,34 +168,26 @@
             scannerDiv.style.display = 'block';
 
             if (!scannerActive) {
-                Quagga.init(
-                    {
-                        inputStream: {
-                            name: "Live",
-                            type: "LiveStream",
-                            target: video, // Vidéo où afficher la caméra
-                            constraints: {
-                                facingMode: "environment" // Utilise la caméra arrière
-                            }
-                        },
-                        decoder: {
-                            readers: ["code_128_reader", "ean_reader", "upc_reader"] // Types de codes-barres supportés
-                        },
-                        locate: true // Active la détection automatique du code-barres
+                Quagga.init({
+                    inputStream: {
+                        name: "Live",
+                        type: "LiveStream",
+                        target: video
                     },
-                    function (err) {
-                        if (err) {
-                            console.error("Erreur lors de l'initialisation du scanner:", err);
-                            alert("Impossible d'accéder à la caméra. Vérifiez les permissions.");
-                            return;
-                        }
-                        Quagga.start();
-                        scannerActive = true;
+                    decoder: {
+                        readers: ["code_128_reader", "ean_reader", "upc_reader"] // Types de codes-barres à scanner
                     }
-                );
+                }, function (err) {
+                    if (err) {
+                        console.error("Erreur lors de l'initialisation du scanner:", err);
+                        alert("Impossible d'accéder à la caméra. Vérifiez les permissions.");
+                        return;
+                    }
+                    Quagga.start();
+                    scannerActive = true;
+                });
 
-                Quagga.onDetected(function (data) {
-                    // Récupère le code scanné et l'affiche dans le champ
+                Quagga.onDetected(data => {
                     document.getElementById('barcode').value = data.codeResult.code;
                     stopScanner();
                 });
