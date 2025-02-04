@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="fr">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -11,11 +11,17 @@
             margin: 20px;
         }
 
-        #barcode-scanner video {
+        #barcode-scanner {
+            position: relative;
             width: 100%;
             max-width: 400px;
+            margin: auto;
             border: 2px solid black;
-            margin: 20px 0;
+        }
+
+        #scanner-preview {
+            width: 100%;
+            height: auto;
         }
 
         button {
@@ -26,10 +32,18 @@
             border: none;
             border-radius: 5px;
             cursor: pointer;
+            margin: 10px;
         }
 
         button:hover {
             background-color: #0056b3;
+        }
+
+        #scanned-code {
+            font-size: 20px;
+            font-weight: bold;
+            color: green;
+            margin-top: 20px;
         }
 
         #error-message {
@@ -41,8 +55,10 @@
 <body>
     <h1>Scanner de Codes-Barres</h1>
     <div id="barcode-scanner">
-        <video id="scanner-preview"></video>
+        <video id="scanner-preview" autoplay playsinline></video>
     </div>
+    <p id="scanned-code"></p>
+    <button type="button" id="validate-button" style="display:none;" onclick="validateScan()">Valider</button>
     <button type="button" onclick="stopScanner()">Retour</button>
     <p id="error-message"></p>
 
@@ -50,58 +66,87 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/quagga/0.12.1/quagga.min.js"></script>
     <script>
         let scannerActive = false;
+        let lastScannedCode = "";
+        let scanCount = 0;
 
         function startScanner() {
-            const video = document.getElementById('scanner-preview');
+            const videoElement = document.getElementById('scanner-preview');
             const errorMessage = document.getElementById('error-message');
+            const scannedCodeElement = document.getElementById('scanned-code');
+            const validateButton = document.getElementById('validate-button');
 
-            // Initialisation du scanner
             if (!scannerActive) {
                 Quagga.init({
                     inputStream: {
                         name: "Live",
                         type: "LiveStream",
-                        target: video, // Flux vidéo
+                        target: "#scanner-preview", // Correction : on cible bien l'élément vidéo
                         constraints: {
-                            facingMode: "environment" // Caméra arrière
+                            facingMode: "environment" // Utilisation de la caméra arrière
                         }
                     },
                     decoder: {
-                        readers: ["code_128_reader", "ean_reader", "upc_reader"] // Formats de codes-barres pris en charge
+                        readers: ["code_128_reader", "ean_reader", "upc_reader"]
                     },
-                    locate: true // Détection automatique des codes-barres
+                    locate: true
                 }, function (err) {
                     if (err) {
                         console.error("Erreur d'initialisation :", err);
-                        errorMessage.textContent = "Erreur d'accès à la caméra. Vérifiez vos permissions.";
+                        errorMessage.textContent = "Erreur d'accès à la caméra. Vérifiez les permissions.";
                         return;
                     }
                     Quagga.start();
                     scannerActive = true;
+                    console.log("Scanner démarré !");
                 });
 
-                // Détection d'un code-barres
+                // Vérification de la détection d'un code-barres
                 Quagga.onDetected(function (data) {
                     const scannedCode = data.codeResult.code;
-                    stopScanner();
-                    // Redirige vers la page principale avec le code scanné
-                    window.location.href = `index.html?barcode=${encodeURIComponent(scannedCode)}`;
+                    console.log("Code détecté :", scannedCode);
+
+                    if (scannedCode === lastScannedCode) {
+                        scanCount++;
+                    } else {
+                        scanCount = 1;
+                    }
+
+                    lastScannedCode = scannedCode;
+
+                    if (scanCount >= 2) { // Validation après deux détections identiques
+                        Quagga.stop();
+                        scannerActive = false;
+                        scannedCodeElement.textContent = `Code scanné : ${scannedCode}`;
+                        validateButton.style.display = "inline-block";
+                    }
                 });
+
+                // Affichage de la caméra via getUserMedia (alternative)
+                navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
+                    .then(function(stream) {
+                        videoElement.srcObject = stream;
+                    })
+                    .catch(function(err) {
+                        console.error("Erreur d'accès à la caméra :", err);
+                        errorMessage.textContent = "Impossible d'accéder à la caméra.";
+                    });
             }
         }
 
-        // Arrête le scanner
+        function validateScan() {
+            window.location.href = `index.html?barcode=${encodeURIComponent(lastScannedCode)}`;
+        }
+
         function stopScanner() {
             if (scannerActive) {
                 Quagga.stop();
                 scannerActive = false;
             }
-            // Retour à la page principale
             window.location.href = "index.html";
         }
 
-        // Démarrer le scanner lors du chargement de la page
-        startScanner();
+        // Attente d'une seconde avant de démarrer le scanner (évite les bugs de démarrage)
+        setTimeout(startScanner, 1000);
     </script>
 </body>
 </html>

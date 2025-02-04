@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="fr">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -72,19 +72,16 @@
             background-color: #f8f9fa;
         }
 
-        @media (max-width: 768px) {
-            input, button {
-                font-size: 14px;
-                padding: 8px;
-            }
+        #barcode-list {
+            list-style-type: none;
+            padding: 0;
+        }
 
-            th, td {
-                font-size: 12px;
-            }
-
-            header img {
-                max-width: 120px;
-            }
+        #barcode-list li {
+            background: #e3e3e3;
+            padding: 5px;
+            margin: 5px 0;
+            border-radius: 5px;
         }
     </style>
 </head>
@@ -105,6 +102,9 @@
         <input type="text" id="barcode" readonly placeholder="Scannez un code-barres">
         <button type="button" onclick="openScanner()">Ouvrir le Scanner</button>
 
+        <h3>Codes-Barres Scannés :</h3>
+        <ul id="barcode-list"></ul>
+
         <button type="button" onclick="addRecord()">Ajouter</button>
     </form>
 
@@ -114,7 +114,7 @@
             <tr>
                 <th>Nom</th>
                 <th>Matricule</th>
-                <th>Code-Barres</th>
+                <th>Codes-Barres</th>
                 <th>Date et Heure</th>
             </tr>
         </thead>
@@ -129,42 +129,56 @@
 
     <script>
         const records = [];
+        let scannedBarcodes = [];
 
-        // Récupérer les paramètres de l'URL
         function getQueryParam(param) {
             const urlParams = new URLSearchParams(window.location.search);
             return urlParams.get(param);
         }
 
-        // Remplir automatiquement le champ code-barres si un code est transmis
-        const barcodeFromScanner = getQueryParam('barcode');
-        if (barcodeFromScanner) {
-            document.getElementById('barcode').value = barcodeFromScanner;
+        function openScanner() {
+            window.location.href = "scanner.html";
+        }
+
+        function addBarcode(barcode) {
+            if (barcode && !scannedBarcodes.includes(barcode)) {
+                scannedBarcodes.push(barcode);
+                const list = document.getElementById("barcode-list");
+                const listItem = document.createElement("li");
+                listItem.textContent = barcode;
+                list.appendChild(listItem);
+                document.getElementById("barcode").value = "";
+            }
         }
 
         function addRecord() {
             const name = document.getElementById('name').value;
             const matricule = document.getElementById('matricule').value;
-            const barcode = document.getElementById('barcode').value;
 
-            if (name && matricule && barcode) {
+            if (name && matricule && scannedBarcodes.length > 0) {
                 const now = new Date();
                 const formattedDate = `${now.toLocaleDateString()} ${now.toLocaleTimeString()}`;
+                const barcodesString = scannedBarcodes.join(", ");
 
-                // Ajouter les informations dans le tableau
-                records.push({ name, matricule, barcode, date: formattedDate });
+                records.push({ name, matricule, barcode: barcodesString, date: formattedDate });
+
                 const table = document.getElementById('recordsTable').getElementsByTagName('tbody')[0];
                 const newRow = table.insertRow();
                 newRow.insertCell(0).textContent = name;
                 newRow.insertCell(1).textContent = matricule;
-                newRow.insertCell(2).textContent = barcode;
+                newRow.insertCell(2).textContent = barcodesString;
                 newRow.insertCell(3).textContent = formattedDate;
 
-                // Réinitialiser le champ code-barres
-                document.getElementById('barcode').value = '';
+                resetScanner();
             } else {
-                alert("Veuillez remplir tous les champs.");
+                alert("Veuillez remplir tous les champs et scanner au moins un code-barres.");
             }
+        }
+
+        function resetScanner() {
+            scannedBarcodes = [];
+            document.getElementById("barcode-list").innerHTML = "";
+            document.getElementById("barcode").value = "";
         }
 
         function exportTableToCSV() {
@@ -194,7 +208,7 @@
         function resetAll() {
             document.getElementById('name').value = '';
             document.getElementById('matricule').value = '';
-            document.getElementById('barcode').value = '';
+            resetScanner();
 
             const tableBody = document.getElementById('recordsTable').getElementsByTagName('tbody')[0];
             tableBody.innerHTML = '';
@@ -203,8 +217,10 @@
             alert("Toutes les données ont été réinitialisées.");
         }
 
-        function openScanner() {
-            window.location.href = "scanner.html";
+        // Si un code-barres est transmis via l'URL
+        const barcodeFromScanner = getQueryParam('barcode');
+        if (barcodeFromScanner) {
+            addBarcode(barcodeFromScanner);
         }
     </script>
 </body>
