@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Scanner de Codes-Barres</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            margin: 20px;
+        }
+
+        #barcode-scanner video {
+            width: 100%;
+            max-width: 400px;
+            border: 2px solid black;
+            margin: 20px 0;
+        }
+
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            background-color: #007bff;
+            color: #fff;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background-color: #0056b3;
+        }
+
+        #error-message {
+            color: red;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Scanner de Codes-Barres</h1>
+    <div id="barcode-scanner">
+        <video id="scanner-preview"></video>
+    </div>
+    <button type="button" onclick="stopScanner()">Retour</button>
+    <p id="error-message"></p>
+
+    <!-- QuaggaJS Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/quagga/0.12.1/quagga.min.js"></script>
+    <script>
+        let scannerActive = false;
+
+        function startScanner() {
+            const video = document.getElementById('scanner-preview');
+            const errorMessage = document.getElementById('error-message');
+
+            // Initialisation du scanner
+            if (!scannerActive) {
+                Quagga.init({
+                    inputStream: {
+                        name: "Live",
+                        type: "LiveStream",
+                        target: video, // Flux vidéo
+                        constraints: {
+                            facingMode: "environment" // Caméra arrière
+                        }
+                    },
+                    decoder: {
+                        readers: ["code_128_reader", "ean_reader", "upc_reader"] // Formats de codes-barres pris en charge
+                    },
+                    locate: true // Détection automatique des codes-barres
+                }, function (err) {
+                    if (err) {
+                        console.error("Erreur d'initialisation :", err);
+                        errorMessage.textContent = "Erreur d'accès à la caméra. Vérifiez vos permissions.";
+                        return;
+                    }
+                    Quagga.start();
+                    scannerActive = true;
+                });
+
+                // Détection d'un code-barres
+                Quagga.onDetected(function (data) {
+                    const scannedCode = data.codeResult.code;
+                    stopScanner();
+                    // Redirige vers la page principale avec le code scanné
+                    window.location.href = `index.html?barcode=${encodeURIComponent(scannedCode)}`;
+                });
+            }
+        }
+
+        // Arrête le scanner
+        function stopScanner() {
+            if (scannerActive) {
+                Quagga.stop();
+                scannerActive = false;
+            }
+            // Retour à la page principale
+            window.location.href = "index.html";
+        }
+
+        // Démarrer le scanner lors du chargement de la page
+        startScanner();
+    </script>
+</body>
+</html>
